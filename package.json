@@ -3,22 +3,17 @@
   "version": "1.0.0",
   "main": "dist/server.js",
   "engines": {
-    "node": ">=18.0.0",
+    "node": "24.x",
     "npm": ">=9.0.0"
   },
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
-    "build": "tsc --project tsconfig.build.json",
+    "build": "tsc",
     "start": "node dist/server.js",
     "clean": "rm -rf dist",
-    "test": "jest",
-    "test:ci": "jest --coverage --watchAll=false",
-    "db:studio": "npx prisma studio",
-    "db:generate": "npx prisma generate",
-    "db:migrate": "npx prisma migrate deploy"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "build:prod": "bash scripts/build.sh"
   },
   "keywords": [],
   "author": "",

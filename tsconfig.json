@@ -1,36 +1,20 @@
 {
   "compilerOptions": {
-    // Lo básico
     "target": "ES2020",
-    "module": "Node16",
+    "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": "./src",
-    
-    // Tipos - crucial para Node.js
-    "types": ["jest", "node"],
-    
-    // Strict mode - siempre activo
     "strict": true,
-    
-    // Interoperabilidad de módulos
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    
-    // Estrategia de resolución de módulos MODERNA
-    "moduleResolution": "node16",  // ← Cambiado de "node" a "node16"
-    
-    // Silenciar advertencia (opcional)
-    // "ignoreDeprecations": "6.0",
-    
-    // Optimizaciones
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "moduleResolution": "node",
     "removeComments": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests", "prisma"]
+  "exclude": ["node_modules", "dist", "tests"]
 }
