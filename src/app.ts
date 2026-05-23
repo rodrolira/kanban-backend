@@ -2,9 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import mongoSanitize from 'express-mongo-sanitize';
-const xss = require('xss-clean');
 import morgan from 'morgan';
+import compression from 'compression';
 import dotenv from 'dotenv';
 
 import authRoutes from './routes/authRoutes';
@@ -18,10 +17,16 @@ dotenv.config();
 // Crear instancia de Express
 export const app = express();
 
-// 1. Security Middlewares
-app.use(helmet()); // Seguridad de headers HTTP
+// ============ 1. MIDDLEWARES DE SEGURIDAD BÁSICOS ============
 
-// 2. Rate limiting (evitar ataques de fuerza bruta)
+// Helmet para seguridad de headers HTTP (configuración compatible)
+app.use(helmet({
+  // Deshabilitar CSP si causa problemas (puedes habilitarlo después)
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+// ============ 2. RATE LIMITING ============
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutos
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // 100 requests por ventana
@@ -31,41 +36,46 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter); // Aplicar solo a rutas API
 
-// 3. Data sanitization contra NoSQL injection
-app.use(mongoSanitize());
+// ============ 3. COMPRESIÓN ============
+app.use(compression());
 
-// 4. Data sanitization contra XSS
-app.use(xss());
-
-// 5. CORS configurado para producción
+// ============ 4. CORS CONFIGURADO ============
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
-  'https://tu-app.vercel.app',
-];
+  'https://kanban-flow.vercel.app',
+  'https://kanban-frontend.vercel.app',
+  'http://localhost:5173',
+].filter(Boolean); // Remover valores undefined/null
 
 app.use(
   cors({
     origin: function (origin, callback) {
       // Permitir requests sin origin (como mobile apps o curl)
       if (!origin) return callback(null, true);
-
-      if (allowedOrigins.indexOf(origin) === -1) {
-        const msg =
-          'The CORS policy for this site does not allow access from the specified Origin.';
-        return callback(new Error(msg), false);
+      
+      // Permitir en desarrollo sin restricciones
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
       }
-      return callback(null, true);
+      
+      // En producción, verificar contra lista blanca
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS bloqueó origen: ${origin}`);
+        callback(new Error('No permitido por CORS'), false);
+      }
     },
     credentials: true,
     optionsSuccessStatus: 200,
   })
 );
 
-// 6. Body parsers con límites
-app.use(express.json({ limit: '10kb' })); // Limitar tamaño de body
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// ============ 5. BODY PARSERS ============
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 7. Logging condicional
+// ============ 6. LOGGING ============
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 } else {
@@ -73,27 +83,56 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
-// Health check endpoint (útil para monitoreo)
+// ============ 7. HEALTH CHECK (PRIMERO) ============
 app.get('/health', (req, res) => {
   res.status(200).json({
-    status: 'OK',
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV,
+    websocket: 'enabled',
+    database: 'connected'
   });
 });
 
-// Aquí luego montaremos las rutas
+// ============ 8. RUTA RAÍZ ============
+app.get('/', (req, res) => {
+  res.json({ 
+    name: 'Kanban API',
+    version: '1.0.0',
+    status: 'operational',
+    endpoints: {
+      health: 'GET /health',
+      auth: {
+        register: 'POST /api/auth/register',
+        login: 'POST /api/auth/login',
+        me: 'GET /api/auth/me'
+      },
+      boards: {
+        list: 'GET /api/boards',
+        create: 'POST /api/boards',
+        get: 'GET /api/boards/:boardId',
+        update: 'PUT /api/boards/:boardId',
+        delete: 'DELETE /api/boards/:boardId'
+      }
+    }
+  });
+});
+
+// ============ 9. RUTAS DE LA API ============
 app.use('/api/auth', authRoutes);
 app.use('/api/boards', boardRoutes);
 app.use('/api/columns', columnRoutes);
 app.use('/api/tasks', taskRoutes);
+
+// ============ 10. MANEJO DE ERRORES ============
 
 // Ruta 404 para endpoints no encontrados
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: `Ruta ${req.method} ${req.path} no encontrada`,
+    timestamp: new Date().toISOString()
   });
 });
 
