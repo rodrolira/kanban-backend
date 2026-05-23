@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: kanban-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kanban-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://kanban-flow.vercel.app
+      - key: PORT
+        value: 3000
+
+databases:
+  - name: kanban-db
+    databaseName: kanban_db
+    user: kanban_user
+    plan: free
